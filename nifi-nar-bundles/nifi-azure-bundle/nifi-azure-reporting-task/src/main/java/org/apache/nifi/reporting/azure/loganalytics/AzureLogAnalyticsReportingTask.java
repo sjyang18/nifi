@@ -16,7 +16,11 @@
  */
 package org.apache.nifi.reporting.azure.loganalytics;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
@@ -118,8 +122,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
             .required(false)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators
-                    .createListValidator(true, true
-                            , StandardValidators.createRegexMatchingValidator(Pattern.compile("[0-9a-z-]+"))))
+                    .createListValidator(true, true, StandardValidators.createRegexMatchingValidator(Pattern.compile("[0-9a-z-]+"))))
             .build();
     static final PropertyDescriptor JOB_NAME = new PropertyDescriptor.Builder()
             .name("The job name")
@@ -177,14 +180,13 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
         String logName = context.getProperty(LOG_ANALYTICS_CUSTOM_LOG_NAME).evaluateAttributeExpressions().getValue();
         final String instanceId = context.getProperty(INSTANCE_ID).evaluateAttributeExpressions().getValue();
         String groupIds = context.getProperty(PROCESS_GROUP_IDS).evaluateAttributeExpressions().getValue();
-        try
-        {
+        try {
             if(groupIds == null) {
                 ProcessGroupStatus status = context.getEventAccess().getControllerStatus();
                 String processGroupName = status.getName();
                 List<Metric> allMetrics = collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected);
                 sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
-            }else {
+            } else {
                 if (!groupIds.contains(",")) {
                     ProcessGroupStatus status = context.getEventAccess().getGroupStatus(groupIds.trim());
                     String processGroupName = status.getName();
@@ -201,23 +203,20 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
                     sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
                 }
             }
-        }
-        catch (IOException | IllegalArgumentException e)
-        {
+        } catch (IOException | IllegalArgumentException e) {
             getLogger().error("Exception in outmost block", e);
         }
     }
+
     /**
      *  Construct HttpsURLConnection and return it
      * @param workspaceId your azure log analytics workspace id
-     * @param linuxPrimaryKey your azure log analytics workspace key
      * @param logName log table name where metrics will be pushed
      * @return HttpsURLConnection to your azure log analytics workspace
-     * @throws IOException
+     * @throws IOException when there is an error in creating https url connection with workspace id
      */
-    protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String linuxPrimaryKey, final String logName)
-        throws IOException
-    {
+    protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String logName)
+        throws IOException {
         String dataCollectorEndpoint =
             MessageFormat.format("https://{0}.ods.opinsights.azure.com/api/logs?api-version=2016-04-01", workspaceId);
         URL url = new URL(dataCollectorEndpoint);
@@ -234,18 +233,17 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
      * @param linuxPrimaryKey your azure log analytics workspace key
      * @param logName log table name where metrics will be pushed
      * @param allMetrics collected metrics to be sent
-     * @throws IOException
-     * @throws IllegalArgumentException
-     * @throws UnsupportedEncodingException
+     * @throws IOException when there is an error in https url connection or read/write to the onnection
+     * @throws IllegalArgumentException when there a exception in converting metrics to json string with Gson.toJson
+     * @throws UnsupportedEncodingException when there is an error with encoding
      */
     protected void sendMetrics(final String workspaceId, final String linuxPrimaryKey, final String logName, final List<Metric> allMetrics)
             throws IOException, IllegalArgumentException, UnsupportedEncodingException {
-        HttpsURLConnection conn = getHttpsURLConnection(workspaceId, linuxPrimaryKey, logName);
+        HttpsURLConnection conn = getHttpsURLConnection(workspaceId, logName);
         Gson gson = new GsonBuilder().create();
         StringBuilder builder = new StringBuilder();
         builder.append('[');
-        for (Metric current : allMetrics)
-        {
+        for (Metric current : allMetrics) {
             builder.append(gson.toJson(current));
             builder.append(',');
         }

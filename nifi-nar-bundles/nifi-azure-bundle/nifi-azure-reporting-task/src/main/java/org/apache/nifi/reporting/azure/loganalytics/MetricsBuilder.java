@@ -22,8 +22,7 @@ import java.util.List;
 /**
  * MetricsBuilder builds the list of metrics
  */
-public class MetricsBuilder
-{
+public class MetricsBuilder{
     private List<Metric> metrics = new ArrayList<>();
 
     public MetricsBuilder(String category, String instanceId, String processGroupId, String processGroupName) {
@@ -57,8 +56,7 @@ public class MetricsBuilder
         return this;
     }
 
-    public MetricsBuilder metric(String metricName, long count)
-    {
+    public MetricsBuilder metric(String metricName, long count){
         Metric metric = null;
         if(isProcessorMetric) {
             metric =  new Metric(this.Computer, this.ProcessGroupId, this.ProcessGroupName);
@@ -77,8 +75,7 @@ public class MetricsBuilder
         return this;
     }
 
-    public MetricsBuilder metric(String metricName, double count)
-    {
+    public MetricsBuilder metric(String metricName, double count){
         Metric metric = null;
         if(isProcessorMetric) {
             metric =  new Metric(this.Computer, this.ProcessGroupId, this.ProcessGroupName);
@@ -97,8 +94,7 @@ public class MetricsBuilder
         return this;
     }
 
-    public MetricsBuilder metric(String metricName, int count)
-    {
+    public MetricsBuilder metric(String metricName, int count) {
         Metric metric = null;
         if(isProcessorMetric) {
             metric =  new Metric(this.Computer, this.ProcessGroupId, this.ProcessGroupName);
@@ -116,8 +112,7 @@ public class MetricsBuilder
         metrics.add(metric);
         return this;
     }
-    public List<Metric> build()
-    {
+    public List<Metric> build() {
         return metrics;
     }
 

@@ -256,8 +256,7 @@ public class TestAzureLogAnalyticsReportingTask {
         private HttpsURLConnection mockConnection;
 
         @Override
-        protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String linuxPrimaryKey,
-            final String logName) throws IOException{
+        protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String logName) throws IOException{
             mockConnection = Mockito.mock(HttpsURLConnection.class);
             return  mockConnection;
         }

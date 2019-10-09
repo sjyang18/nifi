@@ -16,8 +16,7 @@
  */
 package org.apache.nifi.reporting.azure.loganalytics;
 
-public class Metric
-{
+public class Metric {
     public static final String CATEGORY_DATAFLOW = "DataFlow";
     public static final String CATEGORY_CONNECTIONS = "Connections";
     public static final String CATEGORY_PROCESSOR = "Processor";

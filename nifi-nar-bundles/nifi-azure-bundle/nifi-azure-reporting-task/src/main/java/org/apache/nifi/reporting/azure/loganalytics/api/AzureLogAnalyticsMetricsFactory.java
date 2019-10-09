@@ -25,7 +25,7 @@ import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.ProcessorStatus;
 import org.apache.nifi.reporting.azure.loganalytics.MetricNames;
 import org.apache.nifi.reporting.azure.loganalytics.Metric;
-import org.apache.nifi.reporting.azure.loganalytics.MetricBuilder;
+import org.apache.nifi.reporting.azure.loganalytics.MetricsBuilder;
 
 
 public class AzureLogAnalyticsMetricsFactory {
@@ -34,7 +34,7 @@ public class AzureLogAnalyticsMetricsFactory {
 
         String groupId = status.getId();
         String groupName = status.getName();
-        MetricBuilder builder= new MetricBuilder(Metric.CATEGORY_DATAFLOW,instanceId, groupId, groupName);
+        MetricsBuilder builder= new MetricsBuilder(Metric.CATEGORY_DATAFLOW,instanceId, groupId, groupName);
 
         // build dataflow metrics
         builder.metric(MetricNames.FLOW_FILES_RECEIVED, status.getFlowFilesReceived())
@@ -57,7 +57,7 @@ public class AzureLogAnalyticsMetricsFactory {
         final String tags = String.format(
             "[source=%s][destination=%s][cname=%s]", status.getSourceName(), status.getDestinationName(),
             status.getName());
-        MetricBuilder builder= new MetricBuilder(Metric.CATEGORY_CONNECTIONS,instanceId, groupId, groupName);
+        MetricsBuilder builder= new MetricsBuilder(Metric.CATEGORY_CONNECTIONS,instanceId, groupId, groupName);
 
         builder.setTags(tags)
             .metric(MetricNames.INPUT_COUNT,status.getInputCount())
@@ -72,7 +72,7 @@ public class AzureLogAnalyticsMetricsFactory {
 
     public static List<Metric> getProcessorMetrics(ProcessorStatus status, String instanceId, String groupName){
 
-        MetricBuilder builder= new MetricBuilder(Metric.CATEGORY_PROCESSOR,instanceId, status.getGroupId(), groupName);
+        MetricsBuilder builder= new MetricsBuilder(Metric.CATEGORY_PROCESSOR,instanceId, status.getGroupId(), groupName);
 
         builder.setProcessorId(status.getId())
             .setProcessorName(status.getName())
@@ -89,7 +89,7 @@ public class AzureLogAnalyticsMetricsFactory {
     //virtual machine metrics
     public static List<Metric> getJvmMetrics(JvmMetrics virtualMachineMetrics, String instanceId, String groupName) {
 
-        MetricBuilder builder = new MetricBuilder(Metric.CATEGORY_JVM, instanceId, "", groupName);
+        MetricsBuilder builder = new MetricsBuilder(Metric.CATEGORY_JVM, instanceId, "", groupName);
 
         builder.metric(MetricNames.JVM_HEAP_USED, virtualMachineMetrics.heapUsed(DataUnit.B))
             .metric(MetricNames.JVM_HEAP_USAGE, virtualMachineMetrics.heapUsage())
@@ -99,7 +99,7 @@ public class AzureLogAnalyticsMetricsFactory {
             .metric(MetricNames.JVM_THREAD_COUNT, virtualMachineMetrics.threadCount())
             .metric(MetricNames.JVM_DAEMON_THREAD_COUNT, virtualMachineMetrics.daemonThreadCount());
 
-            // Append GC stats
+        // Append GC stats
         virtualMachineMetrics.garbageCollectors()
                 .forEach((name, stat) -> {
                     name = name.toLowerCase().replaceAll("\\s", "_");

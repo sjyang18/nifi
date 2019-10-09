@@ -19,11 +19,14 @@ package org.apache.nifi.reporting.azure.loganalytics;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MetricBuilder
+/**
+ * MetricsBuilder builds the list of metrics
+ */
+public class MetricsBuilder
 {
     private List<Metric> metrics = new ArrayList<>();
 
-    public MetricBuilder(String category, String instanceId, String processGroupId, String processGroupName) {
+    public MetricsBuilder(String category, String instanceId, String processGroupId, String processGroupName) {
         Computer = instanceId;
         ProcessGroupName = processGroupName;
         ProcessGroupId = processGroupId;
@@ -33,28 +36,28 @@ public class MetricBuilder
         }
     }
 
-    public MetricBuilder(String category, String instanceId, String processGroupId, String processGroupName, String processorId, String processorName) {
+    public MetricsBuilder(String category, String instanceId, String processGroupId, String processGroupName, String processorId, String processorName) {
         this(category, instanceId,processGroupId,processGroupName);
         ProcessorId = processorId;
         ProcessorName =processorName;
     }
 
-    public MetricBuilder setProcessorId(String processorId){
+    public MetricsBuilder setProcessorId(String processorId){
         this.ProcessorId = processorId;
         return this;
     }
 
-    public MetricBuilder setProcessorName(String processorName){
+    public MetricsBuilder setProcessorName(String processorName){
         this.ProcessorName = processorName;
         return this;
     }
 
-    public MetricBuilder setTags(String tags) {
+    public MetricsBuilder setTags(String tags) {
         this.Tags = tags;
         return this;
     }
 
-    public MetricBuilder metric(String metricName, long count)
+    public MetricsBuilder metric(String metricName, long count)
     {
         Metric metric = null;
         if(isProcessorMetric) {
@@ -74,7 +77,7 @@ public class MetricBuilder
         return this;
     }
 
-    public MetricBuilder metric(String metricName, double count)
+    public MetricsBuilder metric(String metricName, double count)
     {
         Metric metric = null;
         if(isProcessorMetric) {
@@ -94,7 +97,7 @@ public class MetricBuilder
         return this;
     }
 
-    public MetricBuilder metric(String metricName, int count)
+    public MetricsBuilder metric(String metricName, int count)
     {
         Metric metric = null;
         if(isProcessorMetric) {

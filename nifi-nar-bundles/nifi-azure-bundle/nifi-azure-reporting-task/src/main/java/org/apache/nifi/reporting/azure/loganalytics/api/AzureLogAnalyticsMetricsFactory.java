@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 package org.apache.nifi.reporting.azure.loganalytics.api;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import com.yammer.metrics.core.VirtualMachineMetrics;
-
+import org.apache.nifi.metrics.jvm.JvmMetrics;
+import org.apache.nifi.processor.DataUnit;
 import org.apache.nifi.controller.status.ConnectionStatus;
 import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.ProcessorStatus;
@@ -87,24 +87,26 @@ public class AzureLogAnalyticsMetricsFactory {
     }
 
     //virtual machine metrics
-    public static List<Metric> getJvmMetrics(VirtualMachineMetrics virtualMachineMetrics, String instanceId, String groupName) {
+    public static List<Metric> getJvmMetrics(JvmMetrics virtualMachineMetrics, String instanceId, String groupName) {
 
         MetricBuilder builder = new MetricBuilder(Metric.CATEGORY_JVM, instanceId, "", groupName);
 
-        builder.metric(MetricNames.JVM_HEAP_USED, virtualMachineMetrics.heapUsed())
+        builder.metric(MetricNames.JVM_HEAP_USED, virtualMachineMetrics.heapUsed(DataUnit.B))
             .metric(MetricNames.JVM_HEAP_USAGE, virtualMachineMetrics.heapUsage())
             .metric(MetricNames.JVM_NON_HEAP_USAGE, virtualMachineMetrics.nonHeapUsage())
             .metric(MetricNames.JVM_FILE_DESCRIPTOR_USAGE, virtualMachineMetrics.fileDescriptorUsage())
             .metric(MetricNames.JVM_UPTIME, virtualMachineMetrics.uptime())
             .metric(MetricNames.JVM_THREAD_COUNT, virtualMachineMetrics.threadCount())
             .metric(MetricNames.JVM_DAEMON_THREAD_COUNT, virtualMachineMetrics.daemonThreadCount());
-         // Append GC stats
+
+            // Append GC stats
         virtualMachineMetrics.garbageCollectors()
                 .forEach((name, stat) -> {
                     name = name.toLowerCase().replaceAll("\\s", "_");
                     builder.metric(MetricNames.JVM_GC_RUNS + "." + name, stat.getRuns())
                         .metric(MetricNames.JVM_GC_TIME + "." + name, stat.getTime(TimeUnit.MILLISECONDS));
                 });
+
         // Append thread states
         virtualMachineMetrics.threadStatePercentages()
                 .forEach((state, usage) -> {
@@ -118,14 +120,16 @@ public class AzureLogAnalyticsMetricsFactory {
             name = name.toLowerCase().replaceAll("\\s", "_");
             builder.metric("jvm.mem_pool_" + name, usage);
         });
+
+/* This code will be enabled once nifi-metrics implments getBufferPoolStats
         virtualMachineMetrics.getBufferPoolStats()
         .forEach((name, stat) -> {
             name = name.toLowerCase().replaceAll("\\s", "_");
             builder.metric("jvm.buff_pool_" + name + "_count", stat.getCount())
-                .metric("jvm.buff_pool_" + name + "_mem_used", stat.getMemoryUsed())
-                .metric("jvm.buff_pool_" + name + "_capacity", stat.getTotalCapacity());
+                .metric("jvm.buff_pool_" + name + "_mem_used", stat.getMemoryUsed(DataUnit.MB))
+                .metric("jvm.buff_pool_" + name + "_capacity", stat.getTotalCapacity(DataUnit.MB));
         });
-
+*/
         return builder.build();
 
     }

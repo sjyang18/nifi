@@ -48,7 +48,8 @@ import org.apache.nifi.reporting.azure.loganalytics.api.AzureLogAnalyticsMetrics
 import org.apache.nifi.scheduling.SchedulingStrategy;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.controller.ConfigurationContext;
-import com.yammer.metrics.core.VirtualMachineMetrics;
+import org.apache.nifi.metrics.jvm.JmxJvmMetrics;
+import org.apache.nifi.metrics.jvm.JvmMetrics;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -67,7 +68,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
     private static final Charset            UTF8                = Charset.forName("UTF-8");
     private static final String             HMAC_SHA256_ALG     = "HmacSHA256";
     static final DateTimeFormatter   RFC_1123_DATE_TIME  = DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss O");
-    private volatile VirtualMachineMetrics virtualMachineMetrics;
+    private volatile JvmMetrics virtualMachineMetrics;
 
 
     static final PropertyDescriptor LOG_ANALYTICS_WORKSPACE_ID = new PropertyDescriptor.Builder()
@@ -150,7 +151,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
 
     @OnScheduled
     public void setup(final ConfigurationContext context) {
-       virtualMachineMetrics = VirtualMachineMetrics.getInstance();
+       virtualMachineMetrics = JmxJvmMetrics.getInstance();
     }
 
     @Override

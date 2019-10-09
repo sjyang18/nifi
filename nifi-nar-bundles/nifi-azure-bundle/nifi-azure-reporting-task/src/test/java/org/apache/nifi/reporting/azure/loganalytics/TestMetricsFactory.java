@@ -21,7 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.google.gson.Gson;
-import com.yammer.metrics.core.VirtualMachineMetrics;
+import org.apache.nifi.metrics.jvm.JmxJvmMetrics;
+import org.apache.nifi.metrics.jvm.JvmMetrics;
 
 import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.ProcessorStatus;
@@ -62,7 +63,7 @@ public class TestMetricsFactory {
 
     @Test
     public void testGetVirtualMachineMetrics() {
-        VirtualMachineMetrics virtualMachineMetrics = VirtualMachineMetrics.getInstance();
+        JvmMetrics virtualMachineMetrics = JmxJvmMetrics.getInstance();
         List<Metric> metrics = AzureLogAnalyticsMetricsFactory.getJvmMetrics(virtualMachineMetrics, "testcase", "tests");
         String metricsInString = gson.toJson(metrics);
         System.out.println(metricsInString);

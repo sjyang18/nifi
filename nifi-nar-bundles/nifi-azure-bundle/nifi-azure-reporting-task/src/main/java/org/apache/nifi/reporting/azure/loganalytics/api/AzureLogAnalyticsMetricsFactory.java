@@ -32,8 +32,8 @@ public class AzureLogAnalyticsMetricsFactory {
 
     public static List<Metric> getDataFlowMetrics(ProcessGroupStatus status, String instanceId){
 
-        String groupId = status.getId();
-        String groupName = status.getName();
+        final String groupId = status.getId();
+        final String groupName = status.getName();
         MetricsBuilder builder= new MetricsBuilder(Metric.CATEGORY_DATAFLOW,instanceId, groupId, groupName);
 
         // build dataflow metrics
@@ -121,15 +121,6 @@ public class AzureLogAnalyticsMetricsFactory {
             builder.metric("jvm.mem_pool_" + name, usage);
         });
 
-/* This code will be enabled once nifi-metrics implments getBufferPoolStats
-        virtualMachineMetrics.getBufferPoolStats()
-        .forEach((name, stat) -> {
-            name = name.toLowerCase().replaceAll("\\s", "_");
-            builder.metric("jvm.buff_pool_" + name + "_count", stat.getCount())
-                .metric("jvm.buff_pool_" + name + "_mem_used", stat.getMemoryUsed(DataUnit.MB))
-                .metric("jvm.buff_pool_" + name + "_capacity", stat.getTotalCapacity(DataUnit.MB));
-        });
-*/
         return builder.build();
 
     }

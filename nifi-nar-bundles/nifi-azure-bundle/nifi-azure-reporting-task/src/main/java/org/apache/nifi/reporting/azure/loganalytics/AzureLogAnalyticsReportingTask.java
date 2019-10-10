@@ -60,11 +60,11 @@ import java.time.format.DateTimeFormatter;
 
 
 /**
- * ReportingTask to send metrics from Nifi and JVM to Azure Monitor.
+ * ReportingTask to send metrics from Apache NiFi and JVM to Azure Monitor.
  */
 @Tags({"reporting", "loganalytics", "metrics"})
-@CapabilityDescription("Sends JVM-metrics as well as Nifi-metrics to a Azure Log Analytics workspace." +
-        "Nifi-metrics can be either configured global or on process-group level.")
+@CapabilityDescription("Sends JVM-metrics as well as Apache NiFi-metrics to a Azure Log Analytics workspace." +
+        "Apache NiFi-metrics can be either configured global or on process-group level.")
 @DefaultSchedule(strategy = SchedulingStrategy.TIMER_DRIVEN, period = "1 min")
 public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
 
@@ -77,7 +77,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
 
     static final PropertyDescriptor LOG_ANALYTICS_WORKSPACE_ID = new PropertyDescriptor.Builder()
             .name("Log Analytics Workspace Id")
-            .description("Log Analytics workspace id")
+            .description("Log Analytics Workspace Id")
             .required(true)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
@@ -118,7 +118,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
     static final PropertyDescriptor PROCESS_GROUP_IDS = new PropertyDescriptor.Builder()
             .name("Process group ID(s)")
             .description("If specified, the reporting task will send metrics the configured ProcessGroup(s) only. Multiple IDs should be separated by a comma. If"
-                    + " none of the group-IDs could be found or no IDs are defined, the Nifi-Flow-ProcessGroup is used and global metrics are sent.")
+                    + " none of the group-IDs could be found or no IDs are defined, the NiFi-Flow-ProcessGroup is used and global metrics are sent.")
             .required(false)
             .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .addValidator(StandardValidators
@@ -133,10 +133,18 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
             .build();
     static final PropertyDescriptor SEND_JVM_METRICS = new PropertyDescriptor.Builder()
             .name("Send JVM-metrics")
-            .description("Send JVM-metrics in addition to the Nifi-metrics")
+            .description("Send JVM-metrics in addition to the NiFi-metrics")
             .allowableValues("true", "false")
             .defaultValue("false")
             .required(true)
+            .build();
+    static final PropertyDescriptor LOG_ANALYTICS_URL_ENDPOINT_FORMAT = new PropertyDescriptor.Builder()
+            .name("Log Analytics URL Endpoint Format")
+            .description("Log Analytics URL Endpoint Format")
+            .required(false)
+            .defaultValue("https://{0}.ods.opinsights.azure.com/api/logs?api-version=2016-04-01")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.VARIABLE_REGISTRY)
             .build();
 
     private String createAuthorization(String workspaceId, String key, int contentLength, String rfc1123Date) {
@@ -168,41 +176,37 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
         properties.add(PROCESS_GROUP_IDS);
         properties.add(JOB_NAME);
         properties.add(SEND_JVM_METRICS);
+        properties.add(LOG_ANALYTICS_URL_ENDPOINT_FORMAT);
         return properties;
     }
 
     @Override
-    public void onTrigger(final ReportingContext context) {
+    public void onTrigger(final ReportingContext context){
         final String workspaceId = context.getProperty(LOG_ANALYTICS_WORKSPACE_ID).evaluateAttributeExpressions().getValue();
         final String linuxPrimaryKey = context.getProperty(LINUX_PRIMARY_KEY).evaluateAttributeExpressions().getValue();
         final boolean jvmMetricsCollected = context.getProperty(SEND_JVM_METRICS).asBoolean();
 
-        String logName = context.getProperty(LOG_ANALYTICS_CUSTOM_LOG_NAME).evaluateAttributeExpressions().getValue();
+        final String logName = context.getProperty(LOG_ANALYTICS_CUSTOM_LOG_NAME).evaluateAttributeExpressions().getValue();
         final String instanceId = context.getProperty(INSTANCE_ID).evaluateAttributeExpressions().getValue();
-        String groupIds = context.getProperty(PROCESS_GROUP_IDS).evaluateAttributeExpressions().getValue();
+        final String groupIds = context.getProperty(PROCESS_GROUP_IDS).evaluateAttributeExpressions().getValue();
+        final String urlEndpointFormat = context.getProperty(LOG_ANALYTICS_URL_ENDPOINT_FORMAT).evaluateAttributeExpressions().getValue();
         try {
-            if(groupIds == null) {
+            List<Metric> allMetrics = null;
+            if(groupIds == null || groupIds.isEmpty()) {
                 ProcessGroupStatus status = context.getEventAccess().getControllerStatus();
                 String processGroupName = status.getName();
-                List<Metric> allMetrics = collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected);
-                sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
+                allMetrics = collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected);
             } else {
-                if (!groupIds.contains(",")) {
-                    ProcessGroupStatus status = context.getEventAccess().getGroupStatus(groupIds.trim());
+                allMetrics = new ArrayList<>();
+                for(String groupId: groupIds.split(",")) {
+                    groupId =groupId.trim();
+                    ProcessGroupStatus status = context.getEventAccess().getGroupStatus(groupId);
                     String processGroupName = status.getName();
-                    List<Metric> allMetrics = collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected);
-                    sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
-                } else {
-                    List<Metric> allMetrics = new ArrayList<>();
-                    for(String groupId: groupIds.split(",")) {
-                        groupId =groupId.trim();
-                        ProcessGroupStatus status = context.getEventAccess().getGroupStatus(groupId);
-                        String processGroupName = status.getName();
-                        allMetrics.addAll(collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected));
-                    }
-                    sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
+                    allMetrics.addAll(collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected));
                 }
             }
+            HttpsURLConnection httpsConnection = getHttpsURLConnection(urlEndpointFormat, workspaceId, logName);
+            sendMetrics(httpsConnection, workspaceId, linuxPrimaryKey, allMetrics);
         } catch (IOException | IllegalArgumentException e) {
             getLogger().error("Exception in outmost block", e);
         }
@@ -210,15 +214,16 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
 
     /**
      *  Construct HttpsURLConnection and return it
+     * @param urlFormat URL format to Azure Log Analytics Endpoint
      * @param workspaceId your azure log analytics workspace id
      * @param logName log table name where metrics will be pushed
      * @return HttpsURLConnection to your azure log analytics workspace
      * @throws IOException when there is an error in creating https url connection with workspace id
      */
-    protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String logName)
+    protected HttpsURLConnection getHttpsURLConnection(final String urlFormat, final String workspaceId, final String logName)
         throws IOException {
         String dataCollectorEndpoint =
-            MessageFormat.format("https://{0}.ods.opinsights.azure.com/api/logs?api-version=2016-04-01", workspaceId);
+            MessageFormat.format(urlFormat, workspaceId);
         URL url = new URL(dataCollectorEndpoint);
         HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
@@ -229,6 +234,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
     }
     /**
      * send collected metrics to azure log analytics workspace
+     * @param conn HttpsURLConnection to Azure Log Analytics Endpoint
      * @param workspaceId your azure log analytics workspace id
      * @param linuxPrimaryKey your azure log analytics workspace key
      * @param logName log table name where metrics will be pushed
@@ -237,9 +243,9 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
      * @throws IllegalArgumentException when there a exception in converting metrics to json string with Gson.toJson
      * @throws UnsupportedEncodingException when there is an error with encoding
      */
-    protected void sendMetrics(final String workspaceId, final String linuxPrimaryKey, final String logName, final List<Metric> allMetrics)
+    protected void sendMetrics(final HttpsURLConnection conn, final String workspaceId, final String linuxPrimaryKey, final List<Metric> allMetrics)
             throws IOException, IllegalArgumentException, UnsupportedEncodingException {
-        HttpsURLConnection conn = getHttpsURLConnection(workspaceId, logName);
+
         Gson gson = new GsonBuilder().create();
         StringBuilder builder = new StringBuilder();
         builder.append('[');
@@ -270,7 +276,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
         }
     }
     /**
-     * coolect metrics to be sent to azure log analytics workspace
+     * collect metrics to be sent to azure log analytics workspace
      * @param instanceId instance id
      * @param status process group status
      * @param processGroupName process group name
@@ -279,7 +285,7 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
      */
     private List<Metric> collectMetrics(final String instanceId,
             final ProcessGroupStatus status, final String processGroupName, final boolean jvmMetricsCollected) {
-        List<Metric> allMetrics = new ArrayList<Metric>();
+        List<Metric> allMetrics = new ArrayList<>();
 
         // dataflow process group level metrics
         allMetrics.addAll(AzureLogAnalyticsMetricsFactory.getDataFlowMetrics(status, instanceId));
@@ -322,5 +328,4 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
             populateConnectionStatuses(childGroupStatus, statuses);
         }
     }
-
 }

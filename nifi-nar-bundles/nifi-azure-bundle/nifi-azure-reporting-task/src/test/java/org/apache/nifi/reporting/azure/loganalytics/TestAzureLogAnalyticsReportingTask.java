@@ -242,11 +242,11 @@ public class TestAzureLogAnalyticsReportingTask {
 
         private List<Metric> metricsCollected;
         @Override
-        protected void sendMetrics(final String workspaceId, final String linuxPrimaryKey, final String logName,
+        protected void sendMetrics(final HttpsURLConnection conn, final String workspaceId, final String linuxPrimaryKey,
             final List<Metric> allMetrics) throws IOException{
 
             metricsCollected = allMetrics;
-            super.sendMetrics(workspaceId, linuxPrimaryKey, logName, allMetrics);
+            super.sendMetrics(conn, workspaceId, linuxPrimaryKey, allMetrics);
         }
 
         public List<Metric> getMetricsCollected() {
@@ -256,7 +256,7 @@ public class TestAzureLogAnalyticsReportingTask {
         private HttpsURLConnection mockConnection;
 
         @Override
-        protected HttpsURLConnection getHttpsURLConnection(final String workspaceId, final String logName) throws IOException{
+        protected HttpsURLConnection getHttpsURLConnection(final String urlFormat, final String workspaceId, final String logName) throws IOException{
             mockConnection = Mockito.mock(HttpsURLConnection.class);
             return  mockConnection;
         }

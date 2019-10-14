@@ -22,8 +22,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import javax.net.ssl.HttpsURLConnection;
-
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.nifi.controller.status.ProcessGroupStatus;
 import org.apache.nifi.controller.status.ProcessorStatus;
 import org.apache.nifi.reporting.InitializationException;
@@ -219,49 +219,44 @@ public class TestAzureLogAnalyticsReportingTask {
         reportingContextStub.getEventAccess().setProcessGroupStatus(rootGroupStatus);
         testedReportingTask.onTrigger(reportingContextStub);
 
-        HttpsURLConnection mockConnection = testedReportingTask.getTestedMockConnection();
+        HttpPost postRequest = testedReportingTask.getPostRequest();
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(mockConnection, atLeast(1)).setRequestProperty( eq("Authorization"), captor.capture());
+        verify(postRequest, atLeast(1)).addHeader( eq("Authorization"), captor.capture());
         assertTrue(captor.getValue().contains("SharedKey"));
     }
 
-    @Test
-    public void testOutputStreamToLogAnalytics() throws IOException, InterruptedException, InitializationException {
-
-        reportingContextStub.setProperty(AzureLogAnalyticsReportingTask.SEND_JVM_METRICS.getName(), "true");
-        testedReportingTask.initialize(reportingInitContextStub);
-        testedReportingTask.setup(configurationContextStub);
-        reportingContextStub.getEventAccess().setProcessGroupStatus(rootGroupStatus);
-        testedReportingTask.onTrigger(reportingContextStub);
-
-        HttpsURLConnection mockConnection = testedReportingTask.getTestedMockConnection();
-        verify(mockConnection, atLeast(1)).getOutputStream();
-    }
 
     private class TestableAzureLogAnalyticsReportingTask extends AzureLogAnalyticsReportingTask {
 
         private List<Metric> metricsCollected;
         @Override
-        protected void sendMetrics(final HttpsURLConnection conn, final String workspaceId, final String linuxPrimaryKey,
+        protected void sendMetrics(final HttpPost request, final String workspaceId, final String linuxPrimaryKey,
             final List<Metric> allMetrics) throws IOException{
 
             metricsCollected = allMetrics;
-            super.sendMetrics(conn, workspaceId, linuxPrimaryKey, allMetrics);
+            super.sendMetrics(request, workspaceId, linuxPrimaryKey, allMetrics);
         }
 
         public List<Metric> getMetricsCollected() {
             return metricsCollected;
         }
 
-        private HttpsURLConnection mockConnection;
+        private HttpPost mockHttpPost;
 
         @Override
-        protected HttpsURLConnection getHttpsURLConnection(final String urlFormat, final String workspaceId, final String logName) throws IOException{
-            mockConnection = Mockito.mock(HttpsURLConnection.class);
-            return  mockConnection;
+        protected HttpPost getHttpPost(final String urlFormat, final String workspaceId, final String logName) throws IllegalArgumentException {
+            mockHttpPost = Mockito.mock(HttpPost.class);
+            return  mockHttpPost;
         }
-        protected HttpsURLConnection getTestedMockConnection(){
-            return mockConnection;
+        public HttpPost getPostRequest(){
+            return mockHttpPost;
+        }
+        @Override
+        protected void postRequest(final CloseableHttpClient httpClient, final HttpPost request)
+            throws IOException, RuntimeException {
+            // replace with mock httpclient and call base postRequest
+            CloseableHttpClient mockClient = Mockito.mock(CloseableHttpClient.class);
+            super.postRequest(mockClient, request);
         }
     }
 }

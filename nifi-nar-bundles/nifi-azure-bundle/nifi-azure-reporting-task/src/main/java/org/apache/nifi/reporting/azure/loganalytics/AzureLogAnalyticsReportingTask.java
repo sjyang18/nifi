@@ -17,11 +17,6 @@
 package org.apache.nifi.reporting.azure.loganalytics;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.io.OutputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -32,11 +27,16 @@ import java.util.regex.Pattern;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.net.ssl.HttpsURLConnection;
 import javax.xml.bind.DatatypeConverter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.nifi.annotation.configuration.DefaultSchedule;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -205,46 +205,42 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
                     allMetrics.addAll(collectMetrics(instanceId, status, processGroupName, jvmMetricsCollected));
                 }
             }
-            HttpsURLConnection httpsConnection = getHttpsURLConnection(urlEndpointFormat, workspaceId, logName);
-            sendMetrics(httpsConnection, workspaceId, linuxPrimaryKey, allMetrics);
-        } catch (IOException | IllegalArgumentException e) {
+            HttpPost httpPost = getHttpPost(urlEndpointFormat, workspaceId, logName);
+            sendMetrics(httpPost, workspaceId, linuxPrimaryKey, allMetrics);
+        } catch (IOException | RuntimeException e) {
             getLogger().error("Exception in outmost block", e);
         }
     }
 
     /**
-     *  Construct HttpsURLConnection and return it
+     *  Construct HttpPost and return it
      * @param urlFormat URL format to Azure Log Analytics Endpoint
      * @param workspaceId your azure log analytics workspace id
      * @param logName log table name where metrics will be pushed
      * @return HttpsURLConnection to your azure log analytics workspace
-     * @throws IOException when there is an error in creating https url connection with workspace id
+     * @throws IllegalArgumentException if dataCollectorEndpoint url is invalid
      */
-    protected HttpsURLConnection getHttpsURLConnection(final String urlFormat, final String workspaceId, final String logName)
-        throws IOException {
+    protected HttpPost getHttpPost(final String urlFormat, final String workspaceId, final String logName)
+        throws IllegalArgumentException {
         String dataCollectorEndpoint =
             MessageFormat.format(urlFormat, workspaceId);
-        URL url = new URL(dataCollectorEndpoint);
-        HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Log-Type", logName);
-        conn.setDoOutput(true);
-        return conn;
+        HttpPost post = new HttpPost(dataCollectorEndpoint);
+        post.addHeader("Content-Type", "application/json");
+        post.addHeader("Log-Type", logName);
+        return post;
     }
     /**
      * send collected metrics to azure log analytics workspace
-     * @param conn HttpsURLConnection to Azure Log Analytics Endpoint
+     * @param request HttpPost to Azure Log Analytics Endpoint
      * @param workspaceId your azure log analytics workspace id
      * @param linuxPrimaryKey your azure log analytics workspace key
-     * @param logName log table name where metrics will be pushed
      * @param allMetrics collected metrics to be sent
      * @throws IOException when there is an error in https url connection or read/write to the onnection
      * @throws IllegalArgumentException when there a exception in converting metrics to json string with Gson.toJson
-     * @throws UnsupportedEncodingException when there is an error with encoding
+     * @throws RuntimeException when httpPost fails with none 200 status code
      */
-    protected void sendMetrics(final HttpsURLConnection conn, final String workspaceId, final String linuxPrimaryKey, final List<Metric> allMetrics)
-            throws IOException, IllegalArgumentException, UnsupportedEncodingException {
+    protected void sendMetrics(final HttpPost request, final String workspaceId, final String linuxPrimaryKey, final List<Metric> allMetrics)
+            throws IOException, IllegalArgumentException, RuntimeException {
 
         Gson gson = new GsonBuilder().create();
         StringBuilder builder = new StringBuilder();
@@ -259,19 +255,27 @@ public class AzureLogAnalyticsReportingTask extends AbstractReportingTask {
         final int bodyLength = rawJson.getBytes(UTF8).length;
         final String nowRfc1123 = RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC));
         final String createAuthorization = createAuthorization(workspaceId, linuxPrimaryKey, bodyLength, nowRfc1123);
-        conn.setRequestProperty("Authorization", createAuthorization);
-        conn.setRequestProperty("x-ms-date", nowRfc1123);
-        StringBuffer stringBuffer = new StringBuffer();
-        try(OutputStream os = conn.getOutputStream()) {
-            byte[] input = rawJson.getBytes("utf-8");
-            if(os != null){
-                os.write(input, 0, input.length);
-                BufferedReader reader = null;
-                reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                String line = "";
-                while ((line = reader.readLine()) != null) {
-                    stringBuffer.append(line);
-                }
+        request.addHeader("Authorization", createAuthorization);
+        request.addHeader("x-ms-date", nowRfc1123);
+        request.setEntity(new StringEntity(builder.toString()));
+        try(CloseableHttpClient httpClient = HttpClients.createDefault()){
+            postRequest(httpClient, request);
+        }
+    }
+
+    /**
+     * post request with httpClient and httpPost
+     * @param httpClient HttpClient
+     * @param request HttpPost
+     * @throws IOException if httpClient.execute fails
+     * @throws RuntimeException if post request status return other than 200
+     */
+    protected void postRequest(final CloseableHttpClient httpClient, final HttpPost request)
+        throws IOException, RuntimeException {
+
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            if(response != null && response.getStatusLine().getStatusCode() != 200) {
+                throw new RuntimeException(response.getStatusLine().toString());
             }
         }
     }

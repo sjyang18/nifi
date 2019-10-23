@@ -67,7 +67,7 @@ public abstract class AbstractAzureQueueStorage extends AbstractProcessor {
 
     protected final CloudQueueClient createCloudQueueClient(final ProcessContext context, final FlowFile flowFile) throws URISyntaxException {
         final AzureStorageCredentialsDetails storageCredentialsDetails = AzureStorageUtils.getStorageCredentialsDetails(context, flowFile);
-        final CloudStorageAccount cloudStorageAccount = new CloudStorageAccount(storageCredentialsDetails.getStorageCredentials(), true, null, storageCredentialsDetails.getStorageAccountName());
+        final CloudStorageAccount cloudStorageAccount = new CloudStorageAccount(storageCredentialsDetails.getStorageCredentials(), true, storageCredentialsDetails.getEndpointSuffix(), storageCredentialsDetails.getStorageAccountName());
         final CloudQueueClient cloudQueueClient = cloudStorageAccount.createCloudQueueClient();
 
         return cloudQueueClient;

@@ -24,9 +24,18 @@ public class AzureStorageCredentialsDetails {
 
     private final StorageCredentials storageCredentials;
 
-    public AzureStorageCredentialsDetails(String storageAccountName, StorageCredentials storageCredentials) {
+    private final String endPointSuffix;
+
+    public AzureStorageCredentialsDetails(String storageAccountName, StorageCredentials storageCredentials){
         this.storageAccountName = storageAccountName;
         this.storageCredentials = storageCredentials;
+        this.endPointSuffix = null;
+    }
+
+    public AzureStorageCredentialsDetails(String storageAccountName, StorageCredentials storageCredentials, String endPointSuffix) {
+        this.storageAccountName = storageAccountName;
+        this.storageCredentials = storageCredentials;
+        this.endPointSuffix = endPointSuffix;
     }
 
     public String getStorageAccountName() {
@@ -35,5 +44,12 @@ public class AzureStorageCredentialsDetails {
 
     public StorageCredentials getStorageCredentials() {
         return storageCredentials;
+    }
+
+    public String getEndpointSuffix() {
+        if (this.endPointSuffix == null || this.endPointSuffix.length() ==0) {
+            return null; // azure sdk expects to get null for default (core.windows.net)
+        }
+        else return endPointSuffix;
     }
 }

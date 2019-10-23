@@ -85,6 +85,18 @@ public final class AzureStorageUtils {
             .sensitive(true)
             .build();
 
+    public static final PropertyDescriptor ACCOUNT_ENDPOINT_SUFFIX = new PropertyDescriptor.Builder()
+            .name("storage-account-endpointsuffix")
+            .displayName("Storage Account Endpoint Suffix")
+            .description(ACCOUNT_NAME_BASE_DESCRIPTION +
+                    " Storage Account Endpoint Suffix can be retrieved from connection string of acess key in azure portal. " +
+                    "By default(null), it means azure global cloud environment, and Azure SDK picks up core.windows.net. " +
+                    "For Azure US goverment, the storage account endpoint suffix is core.usgovcloudapi.net.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
+            .required(false)
+            .build();
+
     public static final PropertyDescriptor CONTAINER = new PropertyDescriptor.Builder()
             .name("container-name")
             .displayName("Container Name")
@@ -131,7 +143,7 @@ public final class AzureStorageUtils {
      */
     public static CloudBlobClient createCloudBlobClient(ProcessContext context, ComponentLog logger, FlowFile flowFile) throws URISyntaxException {
         final AzureStorageCredentialsDetails storageCredentialsDetails = getStorageCredentialsDetails(context, flowFile);
-        final CloudStorageAccount cloudStorageAccount = new CloudStorageAccount(storageCredentialsDetails.getStorageCredentials(), true, null, storageCredentialsDetails.getStorageAccountName());
+        final CloudStorageAccount cloudStorageAccount = new CloudStorageAccount(storageCredentialsDetails.getStorageCredentials(), true, storageCredentialsDetails.getEndpointSuffix(), storageCredentialsDetails.getStorageAccountName());
         final CloudBlobClient cloudBlobClient = cloudStorageAccount.createCloudBlobClient();
 
         return cloudBlobClient;
@@ -153,6 +165,7 @@ public final class AzureStorageUtils {
         final String accountName = context.getProperty(ACCOUNT_NAME).evaluateAttributeExpressions(attributes).getValue();
         final String accountKey = context.getProperty(ACCOUNT_KEY).evaluateAttributeExpressions(attributes).getValue();
         final String sasToken = context.getProperty(PROP_SAS_TOKEN).evaluateAttributeExpressions(attributes).getValue();
+        final String endpointSuffix = context.getProperty(ACCOUNT_ENDPOINT_SUFFIX).evaluateAttributeExpressions(attributes).getValue();
 
         if (StringUtils.isBlank(accountName)) {
             throw new IllegalArgumentException(String.format("'%s' must not be empty.", ACCOUNT_NAME.getDisplayName()));
@@ -168,7 +181,7 @@ public final class AzureStorageUtils {
             throw new IllegalArgumentException(String.format("Either '%s' or '%s' must be defined.", ACCOUNT_KEY.getDisplayName(), PROP_SAS_TOKEN.getDisplayName()));
         }
 
-        return new AzureStorageCredentialsDetails(accountName, storageCredentials);
+        return new AzureStorageCredentialsDetails(accountName, storageCredentials, endpointSuffix);
     }
 
     public static Collection<ValidationResult> validateCredentialProperties(ValidationContext validationContext) {

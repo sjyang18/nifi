@@ -90,7 +90,7 @@ public abstract class AbstractAzureDataLakeStorageProcessor extends AbstractProc
     public static final PropertyDescriptor USE_MANAGED_IDENTITY = new PropertyDescriptor.Builder()
             .name("use-managed-identity")
             .displayName("Use Azure Managed Identity")
-            .description("Choose whether or not to use the managed identity of azure vm/vmss. ")
+            .description("Choose whether or not to use the managed identity of Azure VM/VMSS ")
             .required(false).defaultValue("false").allowableValues("true", "false")
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR).build();
 

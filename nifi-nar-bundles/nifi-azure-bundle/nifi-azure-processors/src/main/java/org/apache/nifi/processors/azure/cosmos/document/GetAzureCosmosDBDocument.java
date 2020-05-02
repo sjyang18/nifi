@@ -46,8 +46,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.azure.cosmos.CosmosPagedIterable;
+
 import com.azure.cosmos.models.FeedOptions;
+import com.azure.cosmos.util.CosmosPagedIterable;
 
 @Tags({ "azure", "cosmos", "document", "read", "get" })
 @InputRequirement(Requirement.INPUT_ALLOWED)
@@ -75,11 +76,6 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
             .required(true).addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES).build();
 
-    static final PropertyDescriptor MAX_RESPONSE_PAGE_SIZE = new PropertyDescriptor.Builder().name("max_page_size")
-            .description("The maximum number of elements in a response page from cosmos document database")
-            .required(false).expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES)
-            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR).build();
-
     static final PropertyDescriptor RESULTS_PER_FLOWFILE = new PropertyDescriptor.Builder().name("results-per-flowfile")
             .displayName("Results Per FlowFile")
             .description(
@@ -96,7 +92,6 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
         _propertyDescriptors.add(USE_PRETTY_PRINTING);
         _propertyDescriptors.add(CHARACTER_SET);
         _propertyDescriptors.add(QUERY);
-        _propertyDescriptors.add(MAX_RESPONSE_PAGE_SIZE);
         _propertyDescriptors.add(RESULTS_PER_FLOWFILE);
         _propertyDescriptors.add(SEND_EMPTY_RESULTS);
         propertyDescriptors = Collections.unmodifiableList(_propertyDescriptors);
@@ -203,13 +198,6 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
         final Charset charset = Charset.forName(context.getProperty(CHARACTER_SET).getValue());
 
         final FeedOptions queryOptions = new FeedOptions();
-
-        if (context.getProperty(MAX_RESPONSE_PAGE_SIZE).isSet()) {
-            final int max_page_size = context.getProperty(MAX_RESPONSE_PAGE_SIZE).evaluateAttributeExpressions(input)
-                    .asInteger();
-            logger.debug("setting max page size : " + max_page_size);
-            queryOptions.setMaxItemCount(max_page_size);
-        }
         logger.debug("Running Cosmos SQL query : " + query);
 
         final CosmosPagedIterable<JsonNode> pages = container != null
@@ -286,7 +274,6 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
         // delay.
         if (cosmosClient != null) {
             final FeedOptions queryOptions = new FeedOptions();
-            queryOptions.setMaxItemCount(10);
             container.queryItems("select top 1 c.id from c", queryOptions, JsonNode.class);
         }
     }

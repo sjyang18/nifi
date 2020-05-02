@@ -203,9 +203,10 @@ public abstract class AbstractAzureCosmosDBProcessor extends AbstractProcessor {
         try {
             ConnectionPolicy connectionPolicy = ConnectionPolicy.getDefaultPolicy();
             this.cosmosClient = new CosmosClientBuilder()
-                .setEndpoint(uri)
-                .setKey(accessKey)
-                .setConnectionPolicy(connectionPolicy).setConsistencyLevel(clevel)
+                .endpoint(uri)
+                .key(accessKey)
+                .connectionPolicy(connectionPolicy)
+                .consistencyLevel(clevel)
                 .buildClient();
         } catch (NullPointerException e) {
             getLogger().error("Failed to build cosmosClient due to {}",  e);

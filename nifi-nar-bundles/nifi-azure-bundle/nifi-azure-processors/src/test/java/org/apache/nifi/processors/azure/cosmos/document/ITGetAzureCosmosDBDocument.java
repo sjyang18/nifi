@@ -83,7 +83,6 @@ public class ITGetAzureCosmosDBDocument extends ITAbstractAzureCosmosDBDocument 
     @After
     public void resetGetTestSpecificProperties() {
         runner.removeProperty(GetAzureCosmosDBDocument.RESULTS_PER_FLOWFILE);
-        runner.removeProperty(GetAzureCosmosDBDocument.MAX_RESPONSE_PAGE_SIZE);
     }
 
     @Test
@@ -101,21 +100,6 @@ public class ITGetAzureCosmosDBDocument extends ITAbstractAzureCosmosDBDocument 
         runner.enqueue(new byte[] {});
         runner.run();
 
-        runner.assertAllFlowFilesTransferred(GetAzureCosmosDBDocument.REL_SUCCESS, testData.size());
-        List<MockFlowFile> flowFiles = runner.getFlowFilesForRelationship(GetAzureCosmosDBDocument.REL_SUCCESS);
-        for(int idx=0; idx < testData.size();  idx++) {
-            MockFlowFile flowFile = flowFiles.get(idx);
-            flowFile.assertAttributeExists(CoreAttributes.MIME_TYPE.key());
-            flowFile.assertAttributeEquals(CoreAttributes.MIME_TYPE.key(), "application/json");
-        }
-    }
-
-    @Test
-    public void testReadDocumentsWithResponsePageSize() {
-        runner.setProperty(GetAzureCosmosDBDocument.MAX_RESPONSE_PAGE_SIZE, "4");
-        runner.enqueue(new byte[] {});
-        runner.run();
-        // regardless response page size,the same number of flow files should be generated as testReadDocuments
         runner.assertAllFlowFilesTransferred(GetAzureCosmosDBDocument.REL_SUCCESS, testData.size());
         List<MockFlowFile> flowFiles = runner.getFlowFilesForRelationship(GetAzureCosmosDBDocument.REL_SUCCESS);
         for(int idx=0; idx < testData.size();  idx++) {
@@ -150,9 +134,8 @@ public class ITGetAzureCosmosDBDocument extends ITAbstractAzureCosmosDBDocument 
     }
 
     @Test
-    public void testMultipleResultsInFlowFileWithResponsePageSizeSet() {
+    public void testMultipleResultsInFlowFileWithResultSizeSet() {
         JsonParser parser = new JsonParser();
-        runner.setProperty(GetAzureCosmosDBDocument.MAX_RESPONSE_PAGE_SIZE, "4"); // # of response pages will be differ from the above test
         runner.setProperty(GetAzureCosmosDBDocument.RESULTS_PER_FLOWFILE, "3");
         runner.enqueue(new byte[] {});
         runner.run();

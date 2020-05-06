@@ -26,3 +26,5 @@ org.apache.nifi.processors.azure.storage.DeleteAzureDataLakeStorage
 org.apache.nifi.processors.azure.storage.FetchAzureDataLakeStorage
 org.apache.nifi.processors.azure.cosmos.document.PutAzureCosmosDBDocument
 org.apache.nifi.processors.azure.cosmos.document.GetAzureCosmosDBDocument
+org.apache.nifi.processors.azure.cosmos.document.PutAzureCosmosDBRecord
+org.apache.nifi.processors.azure.cosmos.document.GetAzureCosmosDBRecord

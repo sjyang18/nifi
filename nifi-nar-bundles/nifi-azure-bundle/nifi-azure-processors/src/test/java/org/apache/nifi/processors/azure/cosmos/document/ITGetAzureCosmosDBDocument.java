@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.azure.cosmos.CosmosClientException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;

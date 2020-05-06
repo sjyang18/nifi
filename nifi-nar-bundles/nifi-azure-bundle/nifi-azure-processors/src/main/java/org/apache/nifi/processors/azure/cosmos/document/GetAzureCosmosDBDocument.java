@@ -52,10 +52,11 @@ import com.azure.cosmos.util.CosmosPagedIterable;
 
 @Tags({ "azure", "cosmos", "document", "read", "get" })
 @InputRequirement(Requirement.INPUT_ALLOWED)
-@CapabilityDescription("Creates FlowFiles from documents in Cosmos Document DB loaded by a user-specified query (i.e. sql-like query).")
+@CapabilityDescription("Creates FlowFiles from documents in Azure Cosmos DB loaded by a user-specified query (i.e. sql-like query).")
 public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
     public static final PropertyDescriptor SEND_EMPTY_RESULTS = new PropertyDescriptor.Builder()
-            .name("get-cosmos-send-empty").displayName("Send Empty Result")
+            .name("send-empty-result")
+            .displayName("Send Empty Result")
             .description("If a query executes successfully, but returns no results, send an empty JSON document "
                     + "signifying no result.")
             .allowableValues("true", "false").defaultValue("false").addValidator(StandardValidators.BOOLEAN_VALIDATOR)
@@ -70,13 +71,15 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
             .addValidator(StandardValidators.BOOLEAN_VALIDATOR).build();
 
     static final PropertyDescriptor QUERY = new PropertyDescriptor.Builder()
-            .name("SQL Core Document Query")
+            .name("sql-core-document-query")
+            .displayName("SQL Core Document Query")
             .description("SQL select query (w/wo where clause) to execute. "
                     + "This should be a valid SQL select query to cosmo document database with core sql api.")
             .required(true).addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .expressionLanguageSupported(ExpressionLanguageScope.FLOWFILE_ATTRIBUTES).build();
 
-    static final PropertyDescriptor RESULTS_PER_FLOWFILE = new PropertyDescriptor.Builder().name("results-per-flowfile")
+    static final PropertyDescriptor RESULTS_PER_FLOWFILE = new PropertyDescriptor.Builder()
+            .name("results-per-flowfile")
             .displayName("Results Per FlowFile")
             .description(
                     "How many results to put into a flowfile at once. The whole body will be treated as a JSON array of results.")
@@ -126,7 +129,7 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
         return result;
     }
 
-    // Turn a list of Cosmos result documents into a String representation of a JSON
+    // Turn a list of Azure Cosmos result documents into a String representation of a JSON
     // array
     private String buildBatch(final List<JsonNode> documents, final boolean indent) {
         final StringBuilder builder = new StringBuilder();
@@ -176,7 +179,7 @@ public class GetAzureCosmosDBDocument extends AbstractAzureCosmosDBProcessor {
         sendEmpty = context.getProperty(SEND_EMPTY_RESULTS).asBoolean();
         final FlowFile input = context.hasIncomingConnection() ? session.get() : null;
         logger = getLogger();
-        logger.debug("inside GetCosmosDocument.onTrigger");
+        logger.debug("inside GetAzureCosmosDBDcoument.onTrigger");
 
         if (input == null && context.hasNonLoopConnection()) {
             return;

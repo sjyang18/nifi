@@ -494,6 +494,36 @@ The ShellUserGroupProvider has the following properties:
 
 Like LdapUserGroupProvider, the ShellUserGroupProvider is commented out in the _authorizers.xml_ file.  Refer to that comment for usage examples.
 
+==== AzureGraphUserGroupProvider
+
+The AzureGraphUserGroupProvider fetches user and group details from Azure Active Directory (AAD) using AAD graph-rest API (see link:https://docs.microsoft.com/en-us/graph/api/resources/group?view=graph-rest-1.0[AAD Group^], and link:https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http[AAD Group List^]).
+
+This provider requires the AAD app registration and additional configurations like granting application type permissions for Group.Read.All and User.Read.All,
+and adding optional UPN claim. Refer to the following documentation for details (see link:https://github.com/Azure-Samples/ms-identity-java-daemon/blob/master/msal-client-credential-secret/README.md[AAD app registration^] 
+and link:https://docs.microsoft.com/en-us/azure/active-directory/develop/active-directory-optional-claims#configuring-optional-claims[Configuring optional claims^]).
+
+This provider first searches and retrieves subset of groups based on prefix, a suffix and substring filter property value given. The
+filtering is evaluated against 'displayName' property of AAD Group directory objects. Additional optional list of groups, separated by comma,
+are added into the final list of group. In the case of no prefix/suffix/substring group filter is specified in a group filter property 
+configuration, it will just use the optional list of groups for loading AAD group directory objects and converting into NiFi groups. 
+Finally, it will load all the AAD user objects of the groups into NiFi user objects. Only those users with group membership will be
+loaded into this provider. 
+
+[options="header,footer"]
+|==================================================================================================================================================
+| Property Name | Description
+|`REFRESH_DELAY` | Duration of delay between each user and group refresh. (i.e. `10 secs`).  Default is `5 mins`.
+|`AUTHORITY_ENDPOINT` | The endpoint info can be found from Azure Portal and your AAD application registration -> overview -> Endpoint. For example, Global authority endpoint: https://login.microsoftonline.com, and Gov cloud authority endpoint: https://login.microsoftonline.us
+|`TENANT_ID` | Tenant or Directory ID can be found from Azure Portal and your AAD application registration -> overview -> Directory (Tenant) ID
+|`APP_REG_CLIENT_ID` | Client ID or application ID of your AAD application registration
+|`APP_REG_CLIENT_SECRET` | Secret you have created and saved in AAD application registration ->  Certificates & secrets
+|`GROUP_FILTER_PREFIX` | (Optional) Prefix will match against the displayName property of groups and retrieve only those matching groups
+|`GROUP_FILTER_SUFFIX` | (Optional) Suffix will match against the displayName property of groups and retrieve only those matching groups
+|`GROUP_FILTER_SUBSTRING` | (Optional) Substring will match against the displayName property of groups and retrieve only those groups that contains the substring
+|`GROUP_FILTER_LIST_INCLUSION` | (Optional) addtional comma-separated list of groups that will be searched for users. If no string-based matching filter (i.e. prefix, suffix, and substring) is specified, make sure to set this value for loading users.
+|`PAGE_SIZE` | (Optional) Page size to be used when making rest-api calls to Azure Graph. Set to 0 if you want to disable paging graph rest api calls. Default: 50, Max: 999
+|`USERNAME_FIELD_FROM_GRAPH_API` | Which property of user directory object is mapped to NiFi user name field. Default is 'upn'. 'email' is the another option only if all AAD user directory objects are office 365 tenant users and thus have the email property.
+|==================================================================================================================================================
 
 ==== Composite Implementations
 

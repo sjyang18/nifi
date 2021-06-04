@@ -16,9 +16,14 @@
  */
 package org.apache.nifi.processors.azure.cosmos.document;
 
+import com.azure.cosmos.ConsistencyLevel;
 import com.azure.cosmos.CosmosContainer;
 import com.azure.cosmos.CosmosException;
+import com.azure.cosmos.TransactionalBatch;
 import com.azure.cosmos.implementation.ConflictException;
+import com.azure.cosmos.models.CosmosItemRequestOptions;
+import com.azure.cosmos.models.PartitionKey;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.nifi.annotation.behavior.EventDriven;
 import org.apache.nifi.annotation.behavior.InputRequirement;
@@ -49,6 +54,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -123,27 +129,35 @@ public class PutAzureCosmosDBRecord extends AbstractAzureCosmosDBProcessor {
         return propertyDescriptors;
     }
 
-    protected void bulkInsert(final List<Map<String, Object>> records) throws CosmosException{
-        // In the future, this method will be replaced by calling createItems API
-        // for example, this.container.createItems(records);
-        // currently, no createItems API available in Azure Cosmos Java SDK
+
+    protected void bulkInsert(final List<Map<String, Object>> records, String partitionKeyField) throws CosmosException{
+
         final ComponentLog logger = getLogger();
         final CosmosContainer container = getContainer();
-        for (Map<String, Object> record : records){
-            try {
-                container.createItem(record);
-            } catch (ConflictException e) {
-                // insert with unique id is expected. In case conflict occurs, use the selected strategy.
-                // By default, it will ignore.
-                if (conflictHandlingStrategy != null && conflictHandlingStrategy.equals(UPSERT_CONFLICT.getValue())){
-                    container.upsertItem(record);
-                } else {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Ignoring duplicate based on selected conflict resolution strategy");
-                    }
-                }
+        Comparator<Map<String,Object>> sortByPartitonKeyFiled = new Comparator<Map<String, Object>>() {
+            public int compare(final Map<String, Object> o1, final Map<String, Object> o2) {
+                return (o1.get(partitionKeyField).toString()).compareTo(o2.get(partitionKeyField).toString());
             }
+        };
+        records.sort(sortByPartitonKeyFiled);
+        String currentPartitionKey = "";
+        TransactionalBatch currentBatch = null;
+        boolean batchExecutionNeeded = false;
+        for (Map<String, Object> record : records){
+            String recordPartitionKey = (String)record.get(partitionKeyField);
+            if (currentPartitionKey != recordPartitionKey) {
+                if (currentBatch != null && batchExecutionNeeded) {
+                    container.executeTransactionalBatch(currentBatch);
+                }
+                currentBatch = TransactionalBatch.createTransactionalBatch(new PartitionKey(recordPartitionKey));
+                batchExecutionNeeded = true;
+            }            
+            currentBatch.createItemOperation(record);
         }
+        if (currentBatch != null && batchExecutionNeeded) {
+            container.executeTransactionalBatch(currentBatch);
+        }
+        
     }
 
     @Override
@@ -189,12 +203,12 @@ public class PutAzureCosmosDBRecord extends AbstractAzureCosmosDBProcessor {
                 }
                 batch.add(contentMap);
                 if (batch.size() == ceiling) {
-                    bulkInsert(batch);
+                    bulkInsert(batch, partitionKeyField);
                     batch = new ArrayList<>();
                 }
             }
             if (!error && batch.size() > 0) {
-                bulkInsert(batch);
+                bulkInsert(batch, partitionKeyField);
             }
         } catch (SchemaNotFoundException | MalformedRecordException | IOException | CosmosException e) {
             logger.error("PutAzureCosmoDBRecord failed with error: {}", new Object[]{e.getMessage()}, e);
